@@ -130,10 +130,12 @@ Nothing about local behavior changes based on whether cloud is configured.
   aborting the whole sync, but the losing device's plan for that day is silently
   dropped rather than merged. Acceptable for now, worth revisiting if multi-device
   planning (not just backup/restore on one device) becomes a real use case.
-- **Not implemented**: this hasn't run against a real Supabase project yet (none
-  exists). The SQL migration, RLS policies, and client code are written to the real
-  shape but are unverified against an actual backend — treat the first real sync as a
-  test, not a guarantee.
+- **Verified against a real project**: schema, RLS, and the storage bucket have been
+  confirmed live (all 5 tables + `garments` bucket exist; an unauthenticated insert is
+  correctly rejected by RLS; the auth endpoint responds). What's *not* verified yet is
+  the RN runtime path — AsyncStorage session persistence, the actual OTP email round
+  trip, and `syncNow()` end-to-end from the app — since that needs a device/simulator
+  this environment doesn't have.
 
 ## Known simplifications vs. the full product spec
 
