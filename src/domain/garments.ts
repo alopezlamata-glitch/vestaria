@@ -1,6 +1,6 @@
 import { getDb } from "../db/client";
 import { garmentFromRow, type GarmentRow } from "../db/rows";
-import { generateId, nowIso } from "./id";
+import { generateId, nowIso, toDateString } from "./id";
 import type { Garment, GarmentCategory, SemanticColor } from "./types";
 
 export interface CreateGarmentInput {
@@ -57,12 +57,14 @@ export interface GarmentFilters {
   color?: SemanticColor;
   search?: string;
   includeArchived?: boolean;
+  /** Only garments never worn, or not worn within this many days. */
+  notWornInDays?: number;
 }
 
 export function listGarments(filters: GarmentFilters = {}): Garment[] {
   const db = getDb();
   const clauses: string[] = [];
-  const params: (string | null)[] = [];
+  const params: (string | number | null)[] = [];
 
   if (!filters.includeArchived) {
     clauses.push("archived_at IS NULL");
@@ -79,6 +81,14 @@ export function listGarments(filters: GarmentFilters = {}): Garment[] {
     clauses.push("(name LIKE ? OR category LIKE ? OR primary_color LIKE ?)");
     const like = `%${filters.search.toLowerCase()}%`;
     params.push(like, like, like);
+  }
+  if (filters.notWornInDays !== undefined) {
+    clauses.push(`id NOT IN (
+      SELECT oi.garment_id FROM outfit_items oi
+      JOIN wear_events we ON we.actual_outfit_id = oi.outfit_id
+      WHERE we.date >= ?
+    )`);
+    params.push(toDateString(new Date(Date.now() - filters.notWornInDays * 86400000)));
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
@@ -153,4 +163,9 @@ export function getGarmentLastWorn(garmentId: string): string | null {
     garmentId,
   );
   return row?.date ?? null;
+}
+
+/** Garments never worn, or not worn within `days` — used by Insights. */
+export function getGarmentsNotWornSince(days: number, limit = 12): Garment[] {
+  return listGarments({ notWornInDays: days }).slice(0, limit);
 }

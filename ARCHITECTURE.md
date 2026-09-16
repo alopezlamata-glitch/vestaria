@@ -57,6 +57,37 @@ automatically on first launch with a small starter wardrobe. Pass a larger
 there's currently no debug UI wired to trigger that — call it from a temporary line in
 `app/_layout.tsx` when profiling.
 
+## History & insights (`app/insights.tsx`)
+
+Reachable from a small "History" link on Today. Derives everything from
+`getMonthlyInsights` (outfits/garments worn this month, most-worn) and
+`getGarmentsNotWornSince` — no separate analytics store, it's a read-only view over
+the same wear-event data Today and garment detail already use.
+
+## Calendar move
+
+Long-press a day with a planned outfit to pick it up, then tap the destination day
+(a banner confirms the mode, tap the source again or "Cancel" to back out). This is a
+tap-based quick-assign rather than a physically dragged finger — a full cross-cell
+drag-and-drop over a virtualized 7-column grid (autoscroll, reordering, etc.) was
+judged not worth the added complexity for what is fundamentally a "move this to that
+day" action. `movePlannedOutfit` in `src/domain/calendar.ts` is the primitive either
+approach would use.
+
+## Performance fixture
+
+Long-press the "Closet" title (dev builds only, gated by `__DEV__`) to seed 500
+garments via `seedFixtures(500, 40)` and exercise the grid's virtualization at the
+scale described in the product spec. This is intentionally not reachable in
+production builds — see spec §63 on debug-UI clutter.
+
+## Offline (Phase 7)
+
+Nothing in the app talks to a network yet — every screen reads/writes SQLite
+directly, so "offline support" isn't a separate feature to build, it's the default.
+This stops being free once Phase 8 (cloud backup) adds a remote call; at that point
+mutations need to queue rather than fail when offline.
+
 ## Cloud / sync
 
 Not implemented yet (Phase 8 in the product spec — backup only, after the local
@@ -72,5 +103,3 @@ be layered on without changing the local schema.
 - No offline mutation queue exists yet because there's no remote backend to queue
   against; SQLite alone already makes every core flow (Closet, Outfits, Calendar,
   Today, wear logging) fully offline.
-- Calendar day-to-day move is exposed as a function (`movePlannedOutfit`) but the UI
-  only supports re-picking an outfit per day, not drag-to-move yet.

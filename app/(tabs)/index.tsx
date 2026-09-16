@@ -56,11 +56,24 @@ export default function TodayScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={["top"]}>
-      <View style={{ paddingHorizontal: theme.spacing.lg, marginBottom: theme.spacing.lg }}>
-        <Text style={[theme.typography.secondary, { color: theme.colors.textSecondary }]}>
-          {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
-        </Text>
-        <Text style={[theme.typography.largeTitle, { color: theme.colors.textPrimary }]}>Today</Text>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          paddingHorizontal: theme.spacing.lg,
+          marginBottom: theme.spacing.lg,
+        }}
+      >
+        <View>
+          <Text style={[theme.typography.secondary, { color: theme.colors.textSecondary }]}>
+            {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+          </Text>
+          <Text style={[theme.typography.largeTitle, { color: theme.colors.textPrimary }]}>Today</Text>
+        </View>
+        <Pressable onPress={() => router.push("/insights")} hitSlop={8} style={{ paddingBottom: theme.spacing.sm }}>
+          <Text style={{ color: theme.colors.textSecondary }}>History</Text>
+        </Pressable>
       </View>
 
       <View style={{ flex: 1, paddingHorizontal: theme.spacing.lg }}>

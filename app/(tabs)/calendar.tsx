@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
-import { router, useFocusEffect } from "expo-router";
+import * as Haptics from "expo-haptics";
+import { useFocusEffect } from "expo-router";
 import { FlatList, Modal, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GarmentThumb } from "../../src/components/GarmentThumb";
-import { listCalendarEntries, planOutfitForDate } from "../../src/domain/calendar";
+import { listCalendarEntries, movePlannedOutfit, planOutfitForDate } from "../../src/domain/calendar";
 import { getOutfitWithItems, listOutfits } from "../../src/domain/outfits";
 import { toDateString } from "../../src/domain/id";
 import type { CalendarEntry, OutfitWithItems } from "../../src/domain/types";
@@ -31,6 +32,7 @@ export default function CalendarScreen() {
   const [entries, setEntries] = useState<Record<string, CalendarEntry>>({});
   const [outfitsById, setOutfitsById] = useState<Record<string, OutfitWithItems>>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [moveSourceDate, setMoveSourceDate] = useState<string | null>(null);
 
   const grid = useMemo(() => getMonthGrid(cursor.getFullYear(), cursor.getMonth()), [cursor]);
 
@@ -77,6 +79,29 @@ export default function CalendarScreen() {
         </Pressable>
       </View>
 
+      {moveSourceDate && (
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginHorizontal: theme.spacing.lg,
+            marginBottom: theme.spacing.sm,
+            paddingHorizontal: theme.spacing.md,
+            paddingVertical: theme.spacing.sm,
+            borderRadius: theme.radii.md,
+            backgroundColor: theme.colors.surfaceSecondary,
+          }}
+        >
+          <Text style={[theme.typography.secondary, { color: theme.colors.textPrimary }]}>
+            Tap a day to move this outfit there
+          </Text>
+          <Pressable onPress={() => setMoveSourceDate(null)}>
+            <Text style={{ color: theme.colors.textSecondary }}>Cancel</Text>
+          </Pressable>
+        </View>
+      )}
+
       <View style={{ flexDirection: "row", paddingHorizontal: theme.spacing.lg }}>
         {WEEKDAY_LABELS.map((label, i) => (
           <Text
@@ -99,15 +124,38 @@ export default function CalendarScreen() {
           const entry = entries[dateString];
           const outfit = entry?.plannedOutfitId ? outfitsById[entry.plannedOutfitId] : undefined;
           const isToday = dateString === todayString;
+          const isMoveSource = dateString === moveSourceDate;
+
+          function handlePress() {
+            if (moveSourceDate) {
+              if (moveSourceDate !== dateString) {
+                movePlannedOutfit(moveSourceDate, dateString);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                refresh();
+              }
+              setMoveSourceDate(null);
+              return;
+            }
+            setSelectedDate(dateString);
+          }
+
+          function handleLongPress() {
+            if (!entry?.plannedOutfitId) return;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setMoveSourceDate(dateString);
+          }
 
           return (
             <Pressable
-              onPress={() => setSelectedDate(dateString)}
+              onPress={handlePress}
+              onLongPress={handleLongPress}
+              delayLongPress={350}
               style={{
                 flex: 1,
                 aspectRatio: 0.8,
                 alignItems: "center",
                 paddingTop: theme.spacing.xs,
+                opacity: isMoveSource ? 0.5 : 1,
               }}
             >
               <Text

@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import {
+  Alert,
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,29 +17,52 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { GarmentThumb } from "../../src/components/GarmentThumb";
 import { GARMENT_CATEGORIES, type Garment, type GarmentCategory } from "../../src/domain/types";
 import { useGarments } from "../../src/hooks/useGarments";
+import { seedFixtures } from "../../src/fixtures/seed";
 import { useTheme } from "../../src/theme";
 
 const GRID_GAP = 2;
 const NUM_COLUMNS = 3;
+const NOT_WORN_DAYS = 30;
 
 export default function ClosetScreen() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<GarmentCategory | undefined>(undefined);
+  const [notWornOnly, setNotWornOnly] = useState(false);
 
   const filters = useMemo(
-    () => ({ search: search.trim() || undefined, category }),
-    [search, category],
+    () => ({
+      search: search.trim() || undefined,
+      category,
+      notWornInDays: notWornOnly ? NOT_WORN_DAYS : undefined,
+    }),
+    [search, category, notWornOnly],
   );
-  const { garments } = useGarments(filters);
+  const { garments, refresh } = useGarments(filters);
 
   const cellSize = (width - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
+
+  function handleDevSeed() {
+    if (!__DEV__) return;
+    Alert.alert("Load performance fixture?", "Seeds 500 garments to test Closet scroll performance.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Seed 500",
+        onPress: () => {
+          seedFixtures(500, 40);
+          refresh();
+        },
+      },
+    ]);
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={["top"]}>
       <View style={[styles.header, { paddingHorizontal: theme.spacing.lg }]}>
-        <Text style={[theme.typography.largeTitle, { color: theme.colors.textPrimary }]}>Closet</Text>
+        <Pressable onLongPress={handleDevSeed} delayLongPress={800}>
+          <Text style={[theme.typography.largeTitle, { color: theme.colors.textPrimary }]}>Closet</Text>
+        </Pressable>
         <Pressable
           onPress={() => router.push("/garment/add")}
           hitSlop={8}
@@ -64,42 +90,27 @@ export default function ClosetScreen() {
         />
       </View>
 
-      <FlatList
-        data={CATEGORY_FILTERS}
+      <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item ?? "all"}
         contentContainerStyle={{ paddingHorizontal: theme.spacing.lg, gap: theme.spacing.sm }}
         style={{ flexGrow: 0, marginBottom: theme.spacing.sm }}
-        renderItem={({ item }) => {
-          const active = item === category;
-          return (
-            <Pressable
-              onPress={() => setCategory(item)}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: active ? theme.colors.accent : theme.colors.surfaceSecondary,
-                  borderRadius: theme.radii.full,
-                  paddingHorizontal: theme.spacing.md,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  theme.typography.secondary,
-                  { color: active ? theme.colors.accentInverse : theme.colors.textSecondary },
-                ]}
-              >
-                {item ?? "All"}
-              </Text>
-            </Pressable>
-          );
-        }}
-      />
+      >
+        <Chip
+          label="Not worn"
+          active={notWornOnly}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setNotWornOnly((v) => !v);
+          }}
+        />
+        {CATEGORY_FILTERS.map((item) => (
+          <Chip key={item ?? "all"} label={item ?? "All"} active={item === category} onPress={() => setCategory(item)} />
+        ))}
+      </ScrollView>
 
       {garments.length === 0 ? (
-        <EmptyCloset />
+        <EmptyCloset filtered={!!search.trim() || !!category || notWornOnly} />
       ) : (
         <FlatList
           data={garments}
@@ -125,6 +136,29 @@ export default function ClosetScreen() {
 
 const CATEGORY_FILTERS: (GarmentCategory | undefined)[] = [undefined, ...GARMENT_CATEGORIES];
 
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.chip,
+        {
+          backgroundColor: active ? theme.colors.accent : theme.colors.surfaceSecondary,
+          borderRadius: theme.radii.full,
+          paddingHorizontal: theme.spacing.md,
+        },
+      ]}
+    >
+      <Text
+        style={[theme.typography.secondary, { color: active ? theme.colors.accentInverse : theme.colors.textSecondary }]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function GarmentCell({ garment, size }: { garment: Garment; size: number }) {
   return (
     <Pressable onPress={() => router.push(`/garment/${garment.id}`)} accessibilityLabel={garment.name}>
@@ -133,8 +167,27 @@ function GarmentCell({ garment, size }: { garment: Garment; size: number }) {
   );
 }
 
-function EmptyCloset() {
+function EmptyCloset({ filtered }: { filtered: boolean }) {
   const theme = useTheme();
+
+  if (filtered) {
+    return (
+      <View style={[styles.empty, { paddingHorizontal: theme.spacing.xl }]}>
+        <Text style={[theme.typography.title, { color: theme.colors.textPrimary, textAlign: "center" }]}>
+          No matches.
+        </Text>
+        <Text
+          style={[
+            theme.typography.body,
+            { color: theme.colors.textSecondary, textAlign: "center", marginTop: theme.spacing.sm },
+          ]}
+        >
+          Try a different search or filter.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.empty, { paddingHorizontal: theme.spacing.xl }]}>
       <Text style={[theme.typography.title, { color: theme.colors.textPrimary, textAlign: "center" }]}>
