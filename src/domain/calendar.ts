@@ -58,3 +58,28 @@ export function movePlannedOutfit(fromDate: string, toDate: string): void {
   planOutfitForDate(toDate, entry.plannedOutfitId);
   planOutfitForDate(fromDate, null);
 }
+
+/** Every calendar entry — used by cloud backup to push/pull the whole calendar in one pass. */
+export function listAllCalendarEntries(): CalendarEntry[] {
+  const db = getDb();
+  const rows = db.getAllSync<CalendarEntryRow>("SELECT * FROM calendar_entries ORDER BY date ASC");
+  return rows.map(calendarEntryFromRow);
+}
+
+export function upsertCalendarEntryFromRemote(remote: CalendarEntry): void {
+  const db = getDb();
+  const local = db.getFirstSync<CalendarEntryRow>("SELECT * FROM calendar_entries WHERE id = ?", remote.id);
+  if (local && local.updated_at >= remote.updatedAt) return;
+
+  db.runSync(
+    `INSERT INTO calendar_entries (id, user_id, date, planned_outfit_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET planned_outfit_id = excluded.planned_outfit_id, updated_at = excluded.updated_at`,
+    remote.id,
+    remote.userId,
+    remote.date,
+    remote.plannedOutfitId,
+    remote.createdAt,
+    remote.updatedAt,
+  );
+}

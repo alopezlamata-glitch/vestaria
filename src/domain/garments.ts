@@ -133,6 +133,60 @@ export function updateGarmentImages(id: string, images: { imageLocalUri: string;
   );
 }
 
+/** Records where a garment's photo landed after cloud backup uploaded it. */
+export function updateGarmentRemoteUrls(id: string, urls: { imageRemoteUrl: string; thumbRemoteUrl: string }): void {
+  const db = getDb();
+  db.runSync(
+    "UPDATE garments SET image_remote_url = ?, thumb_remote_url = ? WHERE id = ?",
+    urls.imageRemoteUrl,
+    urls.thumbRemoteUrl,
+    id,
+  );
+}
+
+/**
+ * Merges a garment pulled from the cloud into the local database —
+ * last-write-wins by `updatedAt`, and never clobbers a local file path with
+ * `null` just because the remote row doesn't know about this device's files.
+ */
+export function upsertGarmentFromRemote(remote: Garment): void {
+  const db = getDb();
+  const local = getGarment(remote.id);
+  if (local && local.updatedAt >= remote.updatedAt) return;
+
+  db.runSync(
+    `INSERT INTO garments
+      (id, user_id, name, category, subcategory, primary_color, image_local_uri, image_remote_url, thumb_local_uri, thumb_remote_url, created_at, updated_at, archived_at, purchase_price, currency)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name,
+       category = excluded.category,
+       subcategory = excluded.subcategory,
+       primary_color = excluded.primary_color,
+       image_remote_url = excluded.image_remote_url,
+       thumb_remote_url = excluded.thumb_remote_url,
+       updated_at = excluded.updated_at,
+       archived_at = excluded.archived_at,
+       purchase_price = excluded.purchase_price,
+       currency = excluded.currency`,
+    remote.id,
+    remote.userId,
+    remote.name,
+    remote.category,
+    remote.subcategory,
+    remote.primaryColor,
+    local?.imageLocalUri ?? null,
+    remote.imageRemoteUrl,
+    local?.thumbLocalUri ?? null,
+    remote.thumbRemoteUrl,
+    remote.createdAt,
+    remote.updatedAt,
+    remote.archivedAt,
+    remote.purchasePrice,
+    remote.currency,
+  );
+}
+
 export function archiveGarment(id: string): void {
   const db = getDb();
   db.runSync("UPDATE garments SET archived_at = ? WHERE id = ?", nowIso(), id);

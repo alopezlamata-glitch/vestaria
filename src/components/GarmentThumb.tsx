@@ -6,17 +6,21 @@ import { radii } from "../theme/radii";
 import type { Garment } from "../domain/types";
 
 interface GarmentThumbProps {
-  garment: Pick<Garment, "thumbLocalUri" | "imageLocalUri" | "primaryColor" | "category">;
+  garment: Pick<
+    Garment,
+    "thumbLocalUri" | "imageLocalUri" | "thumbRemoteUrl" | "imageRemoteUrl" | "primaryColor" | "category"
+  >;
   size?: number;
   radius?: number;
 }
 
 /**
- * Renders a garment's thumbnail, falling back to a flat color swatch when no
- * photo has been captured yet (e.g. freshly seeded fixture data).
+ * Renders a garment's thumbnail: local file first, then a remote URL (the
+ * case right after restoring on a new device, before this device has
+ * downloaded its own copy), then a flat color swatch as the final fallback.
  */
 export function GarmentThumb({ garment, size = 96, radius = radii.md }: GarmentThumbProps) {
-  const uri = garment.thumbLocalUri ?? garment.imageLocalUri;
+  const uri = garment.thumbLocalUri ?? garment.imageLocalUri ?? garment.thumbRemoteUrl ?? garment.imageRemoteUrl;
 
   if (uri) {
     return (

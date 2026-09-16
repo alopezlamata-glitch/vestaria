@@ -83,17 +83,57 @@ production builds — see spec §63 on debug-UI clutter.
 
 ## Offline (Phase 7)
 
-Nothing in the app talks to a network yet — every screen reads/writes SQLite
-directly, so "offline support" isn't a separate feature to build, it's the default.
-This stops being free once Phase 8 (cloud backup) adds a remote call; at that point
-mutations need to queue rather than fail when offline.
+Every screen reads/writes SQLite directly, so "offline support" was never a separate
+feature to build — it's the default. The only network calls in the app are the ones
+in `src/cloud/*`, and they only run when the user explicitly taps "Sync now" on the
+Backup screen; nothing else waits on them, and a failed sync just surfaces an inline
+error on that screen rather than blocking anything.
 
-## Cloud / sync
+**Known gap:** there's no queue for offline mutations yet. If "Sync now" is tapped
+without a connection, it fails once with an error and nothing is queued to retry
+automatically — the user just taps it again later. That's an acceptable simplification
+today because sync is manual and opt-in; it stops being acceptable if backup ever
+becomes automatic/background, at which point failed pushes need to persist and retry.
 
-Not implemented yet (Phase 8 in the product spec — backup only, after the local
-experience holds up). The domain layer already separates local ids/timestamps from a
-nullable `userId`, so Supabase auth + Postgres + object storage (R2 or equivalent) can
-be layered on without changing the local schema.
+## Cloud / sync (`src/cloud/*`, `supabase/migrations/0001_init.sql`)
+
+Optional and gated: `isCloudConfigured()` (in `src/cloud/config.ts`) is false until
+`EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` are set (see README "Cloud
+backup setup"), and every cloud entry point checks it first and degrades quietly.
+Nothing about local behavior changes based on whether cloud is configured.
+
+- **Auth** (`src/cloud/auth.ts`): email OTP only (Supabase sends a 6-digit code, no
+  password). Sign in with Apple/Google are natural next additions but need their own
+  developer consoles — not something to fake with a stubbed button.
+- **Schema** (`supabase/migrations/0001_init.sql`): mirrors the local SQLite schema
+  columns-for-columns, with `user_id` added and Row Level Security scoping every table
+  to `auth.uid()`. `outfit_items` has no `user_id` column (matches local) — its policy
+  checks ownership through the parent `outfits` row instead.
+- **Images**: uploaded to a public-read, write-scoped-by-folder Supabase Storage
+  bucket (`garments/<user_id>/<garment_id>/{image,thumb}.jpg`) — never the original
+  camera photo, matching the local pipeline's normalized outputs. Public-read because
+  photos of your own clothes aren't sensitive and it avoids signed-URL expiry
+  complexity; tightening to signed URLs later is a storage-policy change, not a schema
+  one.
+- **Sync** (`src/cloud/backup.ts`): `syncNow()` does a full push then a full pull,
+  last-write-wins by `updated_at` (see product spec §28 — explicitly no CRDT). It's
+  whole-table, not incremental, which is fine at personal-wardrobe scale (hundreds of
+  rows, not millions) and much easier to reason about. `garments.image_local_uri` /
+  `thumb_local_uri` are never sent remotely (device-specific paths); pulling a garment
+  down on a fresh device fills in `imageRemoteUrl`/`thumbRemoteUrl` only;
+  `GarmentThumb` falls back to those (loaded straight from Supabase Storage over the
+  network) when there's no local file yet, which is what makes "restore on a new
+  phone" actually show photos before any re-download step exists.
+- **Known edge case**: `calendar_entries` has `UNIQUE(user_id, date)` remotely (and
+  `UNIQUE(date)` locally). Two devices planning the same date before ever syncing can
+  collide on insert; `backup.ts` swallows that one row's error (`safely()`) rather than
+  aborting the whole sync, but the losing device's plan for that day is silently
+  dropped rather than merged. Acceptable for now, worth revisiting if multi-device
+  planning (not just backup/restore on one device) becomes a real use case.
+- **Not implemented**: this hasn't run against a real Supabase project yet (none
+  exists). The SQL migration, RLS policies, and client code are written to the real
+  shape but are unverified against an actual backend — treat the first real sync as a
+  test, not a guarantee.
 
 ## Known simplifications vs. the full product spec
 

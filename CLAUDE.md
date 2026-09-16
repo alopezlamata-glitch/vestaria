@@ -42,3 +42,7 @@ When two options trade off against each other, resolve in that order.
   `src/components/GarmentThumb.tsx` and `src/imaging/pipeline.ts`.
 - **Test gestures/perf on a real device before calling a screen done** — the web
   preview is convenience-only and can't validate 60fps scrolling or camera capture.
+- **Cloud is optional and additive.** Everything in `src/cloud/*` must check
+  `isCloudConfigured()` / a signed-in session first and degrade quietly — local
+  behavior never depends on whether backup is set up. See ARCHITECTURE.md "Cloud /
+  sync" before touching sync, auth, or the Supabase schema.

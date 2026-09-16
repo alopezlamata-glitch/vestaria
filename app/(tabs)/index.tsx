@@ -71,9 +71,14 @@ export default function TodayScreen() {
           </Text>
           <Text style={[theme.typography.largeTitle, { color: theme.colors.textPrimary }]}>Today</Text>
         </View>
-        <Pressable onPress={() => router.push("/insights")} hitSlop={8} style={{ paddingBottom: theme.spacing.sm }}>
-          <Text style={{ color: theme.colors.textSecondary }}>History</Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: theme.spacing.lg, paddingBottom: theme.spacing.sm }}>
+          <Pressable onPress={() => router.push("/insights")} hitSlop={8}>
+            <Text style={{ color: theme.colors.textSecondary }}>History</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push("/backup")} hitSlop={8}>
+            <Text style={{ color: theme.colors.textSecondary }}>Backup</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={{ flex: 1, paddingHorizontal: theme.spacing.lg }}>

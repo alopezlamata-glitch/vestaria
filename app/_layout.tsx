@@ -35,6 +35,7 @@ export default function RootLayout() {
           <Stack.Screen name="outfit/[id]" options={{ presentation: "card", headerShown: true, headerTitle: "" }} />
           <Stack.Screen name="garment/add" options={{ presentation: "modal", headerShown: false }} />
           <Stack.Screen name="insights" options={{ presentation: "modal", headerShown: false }} />
+          <Stack.Screen name="backup" options={{ presentation: "modal", headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

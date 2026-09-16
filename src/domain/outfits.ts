@@ -152,3 +152,46 @@ export function deleteOutfit(outfitId: string): void {
   const db = getDb();
   db.runSync("DELETE FROM outfits WHERE id = ?", outfitId);
 }
+
+/** All outfit_items across all outfits — used by cloud backup to push everything in one pass. */
+export function listAllOutfitItems(): OutfitItem[] {
+  const db = getDb();
+  const rows = db.getAllSync<OutfitItemRow>("SELECT * FROM outfit_items");
+  return rows.map(outfitItemFromRow);
+}
+
+export function upsertOutfitFromRemote(remote: Outfit): void {
+  const db = getDb();
+  const local = db.getFirstSync<OutfitRow>("SELECT * FROM outfits WHERE id = ?", remote.id);
+  if (local && local.updated_at >= remote.updatedAt) return;
+
+  db.runSync(
+    `INSERT INTO outfits (id, user_id, name, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at`,
+    remote.id,
+    remote.userId,
+    remote.name,
+    remote.createdAt,
+    remote.updatedAt,
+  );
+}
+
+export function upsertOutfitItemFromRemote(remote: OutfitItem): void {
+  const db = getDb();
+  db.runSync(
+    `INSERT INTO outfit_items (id, outfit_id, garment_id, x, y, scale, rotation, z_index)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       x = excluded.x, y = excluded.y, scale = excluded.scale,
+       rotation = excluded.rotation, z_index = excluded.z_index`,
+    remote.id,
+    remote.outfitId,
+    remote.garmentId,
+    remote.x,
+    remote.y,
+    remote.scale,
+    remote.rotation,
+    remote.zIndex,
+  );
+}

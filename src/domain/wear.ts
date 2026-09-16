@@ -49,6 +49,26 @@ export function listWearEvents(startDate: string, endDate: string): WearEvent[] 
   return rows.map(wearEventFromRow);
 }
 
+/** Every wear event — used by cloud backup to push/pull history in one pass. */
+export function listAllWearEvents(): WearEvent[] {
+  const db = getDb();
+  const rows = db.getAllSync<WearEventRow>("SELECT * FROM wear_events ORDER BY date DESC");
+  return rows.map(wearEventFromRow);
+}
+
+/** Inserts a wear event pulled from the cloud if it doesn't exist locally yet. Never overwrites a local undo. */
+export function upsertWearEventFromRemote(remote: WearEvent): void {
+  const db = getDb();
+  db.runSync(
+    "INSERT INTO wear_events (id, user_id, date, actual_outfit_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING",
+    remote.id,
+    remote.userId,
+    remote.date,
+    remote.actualOutfitId,
+    remote.createdAt,
+  );
+}
+
 export interface MonthlyInsights {
   garmentsWornCount: number;
   outfitsWornCount: number;
