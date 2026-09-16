@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Vestaria",
+    "slug": "vestaria",
+    "version": "0.1.0",
+    "scheme": "vestaria",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vestaria.app"
+    },
+    "android": {
+      "package": "com.vestaria.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E9E4DC",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Vestaria needs access to your photos to add garments to your wardrobe.",
+          "cameraPermission": "Vestaria needs access to your camera to add garments to your wardrobe."
+        }
+      ]
+    ]
+  }
+}
