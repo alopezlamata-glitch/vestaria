@@ -132,10 +132,24 @@ Nothing about local behavior changes based on whether cloud is configured.
   planning (not just backup/restore on one device) becomes a real use case.
 - **Verified against a real project**: schema, RLS, and the storage bucket have been
   confirmed live (all 5 tables + `garments` bucket exist; an unauthenticated insert is
-  correctly rejected by RLS; the auth endpoint responds). What's *not* verified yet is
-  the RN runtime path — AsyncStorage session persistence, the actual OTP email round
-  trip, and `syncNow()` end-to-end from the app — since that needs a device/simulator
-  this environment doesn't have.
+  correctly rejected by RLS; the auth endpoint responds). The actual `requestEmailCode`
+  round trip was also exercised through the real app UI on web (root layout tolerates
+  `expo-sqlite` being unavailable there — see below — so `/backup` is reachable even
+  though the rest of the app isn't): a bogus `@example.com` address was correctly
+  rejected by Supabase's own validation with the error surfaced in the UI, and a real
+  address on a disposable domain was accepted and advanced to the code-entry step,
+  confirming `auth.ts` → `client.ts` → supabase-js → network → Supabase Auth works
+  end-to-end. What's still unverified is anything that needs SQLite — `syncNow()`
+  itself, since it reads local garments/outfits/etc. — which needs a real
+  device/simulator this environment doesn't have.
+
+## Root layout tolerates a missing local database
+
+`app/_layout.tsx`'s `migrate()`/`seedFixtures()` call is wrapped in try/catch. On a
+platform where `expo-sqlite` doesn't work (currently: web only — see above), the app
+no longer hard-crashes; screens that don't touch SQLite (like Backup) still render.
+Screens that do touch it (Today, Closet, …) still error individually when mounted,
+which is fine since iOS/Android — the only real targets — don't hit this at all.
 
 ## Known simplifications vs. the full product spec
 

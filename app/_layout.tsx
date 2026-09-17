@@ -14,9 +14,17 @@ export default function RootLayout() {
   const theme = useTheme();
 
   useEffect(() => {
-    migrate();
-    if (isWardrobeEmpty()) {
-      seedFixtures();
+    try {
+      migrate();
+      if (isWardrobeEmpty()) {
+        seedFixtures();
+      }
+    } catch (err) {
+      // SQLite has no working web backend (see ARCHITECTURE.md) — on that
+      // platform this is expected, and screens that don't touch the local
+      // database (like Backup) should still be reachable rather than the
+      // whole app going down over it.
+      if (__DEV__) console.warn("Local database unavailable:", err);
     }
     setReady(true);
   }, []);
